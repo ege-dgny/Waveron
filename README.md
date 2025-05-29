@@ -49,7 +49,7 @@ waveron_research_project/
 │   ├── dataset_loader.py
 │   └── plotting.py
 ├── results/                    # Directory where output plots and data will be saved
-├── run_experiment.py           # Main script to run experiments
+├── main.py                     # Main script to run experiments
 └── README.md                   # This file
 ```
 
@@ -72,12 +72,12 @@ pip install torch torchvision torchaudio pytorch_wavelets scikit-learn matplotli
 
 ## Running Experiments
 
-The main script to run experiments is `run_experiment.py`. It uses argparse for configuration.
+The main script to run experiments is `main.py`. It uses argparse for configuration.
 
 **Example: Train and evaluate Waveron (summation, db4 wavelet) on noisy MNIST and test robustness to various noise levels:**
 
 ```bash
-python run_experiment.py \
+python main.py \
     --model_types waveron \
     --dataset mnist_noisy \
     --noise_std 0.2 \
@@ -91,7 +91,7 @@ python run_experiment.py \
 **Example: Compare Waveron, MLP, and FourierNet trained on clean MNIST, evaluated on noisy MNIST:**
 
 ```bash
-python run_experiment.py \
+python main.py \
     --model_types waveron mlp fourier \
     --dataset mnist \
     --eval_noise_levels 0.0 0.1 0.2 0.3 0.4 0.5 \
@@ -104,7 +104,7 @@ python run_experiment.py \
 **Example: Evaluate robustness of different wavelets for the waveron_concat model:**
 
 ```bash
-python run_experiment.py \
+python main.py \
     --model_types waveron_concat \
     --eval_wavelets_robustness \
     --eval_noise_levels 0.0 0.1 0.2 0.3 0.4 0.5 \
@@ -113,16 +113,7 @@ python run_experiment.py \
     --epochs 10
 ```
 
-Refer to `run_experiment.py` for all available command-line arguments and their defaults. Experimental results (plots, etc.) will be saved in the `results/` directory, organized by experiment configuration and timestamp.
-
-## Citation
-
-If you use this code or research in your work, please consider citing the upcoming paper:
-
-```bibtex
-[Placeholder for your paper's citation once available]
-Ege Doğanay and Orhan Arıkan. "Waveron Networks for Edge Computing: A Comparative Study of Wavelet-Based Neural Networks for Robust Feature Extraction." (Conference/Journal, Year).
-```
+Refer to `main.py` for all available command-line arguments and their defaults. Experimental results (plots, etc.) will be saved in the `results/` directory, organized by experiment configuration and timestamp.
 
 ## License
 
