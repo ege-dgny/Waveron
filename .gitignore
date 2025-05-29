@@ -185,7 +185,7 @@ cython_debug/
 
 #experiment
 /data
-/result
+/results
 /the_paper
 
 # PyCharm
