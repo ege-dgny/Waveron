@@ -117,4 +117,4 @@ Refer to `main.py` for all available command-line arguments and their defaults. 
 
 ## License
 
-[Specify your chosen license, e.g., MIT, Apache 2.0, or leave as TBD] 
+MIT License 
