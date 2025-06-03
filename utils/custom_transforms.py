@@ -28,3 +28,13 @@ class AddRandomBackground(object):
 
     def __repr__(self):
         return self.__class__.__name__ + f'(threshold={self.threshold})'
+
+class SpeckleNoise(object):
+    def __init__(self, std) -> None:
+        self.std = std
+
+    def __call__(self, tensor):
+        return tensor + torch.randn(tensor.size(), device=tensor.device) * self.std
+
+    def __repr__(self):
+        return self.__class__.__name__ + f'(std={self.std})'
