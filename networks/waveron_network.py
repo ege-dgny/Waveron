@@ -4,6 +4,26 @@ from pytorch_wavelets import DWTForward
 import math
 
 
+class ChannelAttention(nn.Module):
+    def __init__(self, channels, reduction_ratio=16):
+        super(ChannelAttention, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.max_pool = nn.AdaptiveMaxPool2d(1)
+        
+        self.fc = nn.Sequential(
+            nn.Conv2d(channels, channels // reduction_ratio, 1, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(channels // reduction_ratio, channels, 1, bias=False)
+        )
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        avg_out = self.fc(self.avg_pool(x))
+        max_out = self.fc(self.max_pool(x))
+        out = avg_out + max_out
+        return self.sigmoid(out)
+
+
 class Waveron(nn.Module):
     def __init__(self, in_channels, conv_out_channels, kernel_size, wavelet_name, J=1):
         super(Waveron, self).__init__()
@@ -14,12 +34,33 @@ class Waveron(nn.Module):
         padding = kernel_size // 2
         self.conv = nn.Conv2d(in_channels, conv_out_channels,
                               kernel_size=kernel_size, padding=padding, bias=True)
+        self.bn = nn.BatchNorm2d(conv_out_channels)
         self.relu = nn.ReLU()
         self.dwt = DWTForward(J=J, wave=wavelet_name, mode='symmetric')
+        
+        # Add residual connection if input and output channels match
+        self.use_residual = in_channels == conv_out_channels
+        if self.use_residual:
+            self.residual_conv = nn.Conv2d(in_channels, conv_out_channels, kernel_size=1)
+            
+        # Add channel attention
+        self.channel_attention = ChannelAttention(conv_out_channels)
 
     def forward(self, x):
+        identity = x
+        
         convolved = self.conv(x)
-        activated = self.relu(convolved)
+        normalized = self.bn(convolved)
+        activated = self.relu(normalized)
+        
+        # Apply channel attention
+        attention = self.channel_attention(activated)
+        activated = activated * attention
+        
+        # Add residual connection if applicable
+        if self.use_residual:
+            activated = activated + self.residual_conv(identity)
+            
         Yl, Yh = self.dwt(activated)
         Yh0 = Yh[0]
         LH = Yh0[:, :, 0, :, :]
@@ -41,6 +82,10 @@ class WaveNetClassifierBase(nn.Module):
         self.input_channels = input_channels
         self.aggregation_type = aggregation_type
         self.num_waveron_layers = num_waveron_layers
+
+        # Add learnable aggregation weights
+        self.aggregation_weights = nn.Parameter(torch.ones(4) / 4)  # Initialize with equal weights
+        self.aggregation_softmax = nn.Softmax(dim=0)
 
         self.initial_dwt = DWTForward(J=1, wave=self.wavelet_name, mode='symmetric')
 
@@ -113,11 +158,17 @@ class WaveNetClassifierBase(nn.Module):
         if self.aggregation_type == 'sum':
             for i in range(4):
                 bands_of_one_type = w1_outputs_by_type_dict_of_lists[i]
-                aggregated_bands.append(torch.sum(torch.stack(bands_of_one_type, dim=0), dim=0))
+                # Apply learnable weights to each band
+                weighted_bands = [band * self.aggregation_softmax(self.aggregation_weights)[i] 
+                                for band in bands_of_one_type]
+                aggregated_bands.append(torch.sum(torch.stack(weighted_bands, dim=0), dim=0))
         elif self.aggregation_type == 'concat':
             for i in range(4):
                 bands_of_one_type = w1_outputs_by_type_dict_of_lists[i]
-                aggregated_bands.append(torch.cat(bands_of_one_type, dim=1))
+                # Apply learnable weights to each band
+                weighted_bands = [band * self.aggregation_softmax(self.aggregation_weights)[i] 
+                                for band in bands_of_one_type]
+                aggregated_bands.append(torch.cat(weighted_bands, dim=1))
         return aggregated_bands
 
     def forward(self, x, return_intermediate_outputs=False, return_penultimate_features=False,
